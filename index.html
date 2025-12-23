@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>Rat 상태 간이 평가</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<style>
+body {
+  font-family: Arial, sans-serif;
+  padding: 20px;
+  max-width: 600px;
+  margin: auto;
+}
+h1 { text-align: center; }
+h2 { margin-top: 30px; }
+label { display: block; margin: 6px 0; }
+.score-group label { margin-left: 10px; }
+input[type="number"], textarea {
+  width: 100%;
+  padding: 8px;
+  margin-top: 4px;
+}
+.total {
+  font-size: 20px;
+  font-weight: bold;
+  margin-top: 20px;
+  text-align: center;
+}
+button {
+  margin-top: 25px;
+  width: 100%;
+  padding: 14px;
+  font-size: 16px;
+}
+</style>
+</head>
+
+<body>
+
+<h1>Rat 상태 간이 평가</h1>
+
+<label>
+Cohort 번호
+<input type="number" id="cohort" required>
+</label>
+
+<label>
+Rat 번호
+<input type="number" id="rat" required>
+</label>
+
+<h2>활동성</h2>
+<div class="score-group" id="activity"></div>
+
+<h2>털 상태</h2>
+<div class="score-group" id="fur"></div>
+
+<h2>눈 상태</h2>
+<div class="score-group" id="eye"></div>
+
+<h2>특이사항</h2>
+<textarea id="note" rows="4" placeholder="특이사항이 있으면 입력"></textarea>
+
+<div class="total">
+총점: <span id="total">0</span> / 15
+</div>
+
+<button onclick="submitForm()">제출</button>
+
+<script>
+/* 🔴 여기에 Apps Script 웹앱 URL 붙여넣기 🔴 */
+const scriptURL = "https://script.google.com/macros/s/AKfycbzRRDh86qJEeZYDbjxKDM9NHjOTtN6Q14rSvnC6zm73WpoFr3LlEi87DrLXIoTYmOeB/exec";
+
+/* 점수 설명 */
+const descriptions = {
+  activity: {
+    5: "정상, 활발하게 움직임",
+    4: "약간 활동 감소",
+    3: "명확한 활동 감소",
+    2: "거의 움직이지 않음",
+    1: "무기력, 자극에도 반응 거의 없음"
+  },
+  fur: {
+    5: "윤기 있고 정돈됨",
+    4: "약간 거칠음",
+    3: "거칠고 정돈 안 됨",
+    2: "부분 탈모",
+    1: "심한 탈모 / 피부 노출"
+  },
+  eye: {
+    5: "맑고 깨끗함",
+    4: "소량 분비물",
+    3: "분비물 뚜렷",
+    2: "눈 반쯤 감김",
+    1: "심한 분비물 / 거의 개안 불가"
+  }
+};
+
+/* 라디오 버튼 생성 */
+function makeRadios(name, containerId) {
+  const container = document.getElementById(containerId);
+  for (let i = 5; i >= 1; i--) {
+    container.innerHTML += `
+      <label>
+        <input type="radio" name="${name}" value="${i}" onchange="calcTotal()">
+        <strong>${i}</strong> (${descriptions[name][i]})
+      </label>
+    `;
+  }
+}
+
+makeRadios("activity", "activity");
+makeRadios("fur", "fur");
+makeRadios("eye", "eye");
+
+/* 점수 계산 */
+function getScore(name) {
+  const el = document.querySelector(`input[name="${name}"]:checked`);
+  return el ? Number(el.value) : 0;
+}
+
+function calcTotal() {
+  const total =
+    getScore("activity") +
+    getScore("fur") +
+    getScore("eye");
+  document.getElementById("total").innerText = total;
+}
+
+/* 제출 */
+function submitForm() {
+  const cohort = document.getElementById("cohort").value;
+  const rat = document.getElementById("rat").value;
+
+  if (!cohort || !rat) {
+    alert("Cohort 번호와 Rat 번호를 입력하세요.");
+    return;
+  }
+
+  if (
+    getScore("activity") === 0 ||
+    getScore("fur") === 0 ||
+    getScore("eye") === 0
+  ) {
+    alert("모든 평가 항목을 선택하세요.");
+    return;
+  }
+
+  const data = {
+    cohort: cohort,
+    rat: rat,
+    activity: getScore("activity"),
+    fur: getScore("fur"),
+    eye: getScore("eye"),
+    total: document.getElementById("total").innerText,
+    note: document.getElementById("note").value
+  };
+
+  fetch(scriptURL, {
+    method: "POST",
+    body: JSON.stringify(data)
+  })
+  .then(() => {
+    alert("저장 완료");
+    location.reload();
+  })
+  .catch(() => {
+    alert("저장 중 오류 발생");
+  });
+}
+</script>
+
+</body>
+</html>
