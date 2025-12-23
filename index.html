@@ -70,4 +70,88 @@
 
       let status = "";
       if (total >= 13) status = "Normal";
-      else
+      else if (total >= 9) status = "Mild";
+      else status = "Severe";
+
+      document.getElementById("status").value = status;
+      document.getElementById("status_display").innerText =
+        "Assessment: " + status;
+    }
+
+    function generateRatID() {
+      const cohort = document.getElementById("cohort").value;
+      const rat = document.getElementById("rat").value;
+
+      if (cohort && rat) {
+        document.getElementById("rat_id").value =
+          "C" +
+          String(cohort).padStart(2, "0") +
+          String(rat).padStart(2, "0");
+      }
+    }
+  </script>
+</head>
+
+<body>
+
+<div class="container">
+  <h2>Rat Observation</h2>
+
+  <form action="https://docs.google.com/forms/d/1mo-XU34DKLIzGBndxT7uhtgZeWmAXrpm1caFayKW3rY/formResponse"
+        method="POST">
+
+    <label>Cohort</label>
+    <input type="number" id="cohort" name="entry.1403632805"
+           oninput="generateRatID()">
+
+    <label>Rat Number</label>
+    <input type="number" id="rat" name="entry.1776758782"
+           oninput="generateRatID()">
+
+    <label>Rat ID (auto)</label>
+    <input type="text" id="rat_id" name="entry.1590806494" readonly>
+
+    <label>Activity</label>
+    <select id="activity" name="entry.604859986"
+            onchange="calcTotalAndStatus()">
+      <option value="">선택</option>
+      <option>1</option><option>2</option><option>3</option>
+      <option>4</option><option>5</option>
+    </select>
+    <div class="desc">1–2: 둔함 / 3: 보통 / 4–5: 활발</div>
+
+    <label>Fur</label>
+    <select id="fur" name="entry.739649108"
+            onchange="calcTotalAndStatus()">
+      <option value="">선택</option>
+      <option>1</option><option>2</option><option>3</option>
+      <option>4</option><option>5</option>
+    </select>
+    <div class="desc">1–2: 불량 / 3: 보통 / 4–5: 정상</div>
+
+    <label>Eye</label>
+    <select id="eye" name="entry.281113936"
+            onchange="calcTotalAndStatus()">
+      <option value="">선택</option>
+      <option>1</option><option>2</option><option>3</option>
+      <option>4</option><option>5</option>
+    </select>
+    <div class="desc">1–2: 이상 / 3: 경미 / 4–5: 정상</div>
+
+    <label>Total Score</label>
+    <input type="number" id="total" name="entry.80152893" readonly>
+
+    <!-- 판정값 전송용 (폼에는 보이지 않음) -->
+    <input type="hidden" id="status" name="entry.2140710207">
+
+    <div class="result" id="status_display"></div>
+
+    <label>Note</label>
+    <textarea name="entry.169205044" rows="3"></textarea>
+
+    <button type="submit">제출</button>
+  </form>
+</div>
+
+</body>
+</html>
