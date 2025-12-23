@@ -60,6 +60,18 @@
   </style>
 
   <script>
+    function generateRatID() {
+      const cohort = document.getElementById("cohort").value;
+      const rat = document.getElementById("rat").value;
+
+      if (cohort && rat) {
+        document.getElementById("rat_id").value =
+          "C" +
+          String(cohort).padStart(2, "0") +
+          String(rat).padStart(2, "0");
+      }
+    }
+
     function calcTotalAndStatus() {
       const a = Number(document.getElementById("activity").value || 0);
       const f = Number(document.getElementById("fur").value || 0);
@@ -78,16 +90,10 @@
         "Assessment: " + status;
     }
 
-    function generateRatID() {
-      const cohort = document.getElementById("cohort").value;
-      const rat = document.getElementById("rat").value;
-
-      if (cohort && rat) {
-        document.getElementById("rat_id").value =
-          "C" +
-          String(cohort).padStart(2, "0") +
-          String(rat).padStart(2, "0");
-      }
+    function submitAndRedirect() {
+      setTimeout(() => {
+        window.location.href = "done.html";
+      }, 500);
     }
   </script>
 </head>
@@ -97,8 +103,15 @@
 <div class="container">
   <h2>Rat Observation</h2>
 
-  <form action="https://docs.google.com/forms/d/1mo-XU34DKLIzGBndxT7uhtgZeWmAXrpm1caFayKW3rY/formResponse"
-        method="POST">
+  <!-- 숨은 iframe -->
+  <iframe name="hidden_iframe" style="display:none;"></iframe>
+
+  <form
+    action="https://docs.google.com/forms/d/1mo-XU34DKLIzGBndxT7uhtgZeWmAXrpm1caFayKW3rY/formResponse"
+    method="POST"
+    target="hidden_iframe"
+    onsubmit="submitAndRedirect();"
+  >
 
     <label>Cohort</label>
     <input type="number" id="cohort" name="entry.1403632805"
@@ -141,7 +154,7 @@
     <label>Total Score</label>
     <input type="number" id="total" name="entry.80152893" readonly>
 
-    <!-- 판정값 전송용 (폼에는 보이지 않음) -->
+    <!-- Assessment (숨김 전송) -->
     <input type="hidden" id="status" name="entry.2140710207">
 
     <div class="result" id="status_display"></div>
