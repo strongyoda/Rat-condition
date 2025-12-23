@@ -157,10 +157,13 @@ function submitForm() {
     note: document.getElementById("note").value
   };
 
-  fetch(scriptURL, {
-    method: "POST",
-    body: JSON.stringify(data)
-  })
+ fetch(scriptURL, {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json"
+  },
+  body: JSON.stringify(data)
+})
   .then(() => {
     alert("저장 완료");
     location.reload();
@@ -174,3 +177,4 @@ function submitForm() {
 </body>
 
 </html>
+
