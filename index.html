@@ -22,7 +22,7 @@
     }
     h2 {
       text-align: center;
-      margin-bottom: 20px;
+      margin-bottom: 15px;
     }
     label {
       display: block;
@@ -43,11 +43,11 @@
       color: #555;
       margin-top: 4px;
     }
-    .datetime {
+    .result {
+      margin-top: 10px;
+      font-size: 15px;
+      font-weight: bold;
       text-align: center;
-      font-size: 14px;
-      color: #666;
-      margin-bottom: 10px;
     }
     button {
       margin-top: 25px;
@@ -60,98 +60,14 @@
   </style>
 
   <script>
-    function setDateTime() {
-      const now = new Date();
-      const formatted = now.getFullYear() + "-" +
-        String(now.getMonth()+1).padStart(2,"0") + "-" +
-        String(now.getDate()).padStart(2,"0") + " " +
-        String(now.getHours()).padStart(2,"0") + ":" +
-        String(now.getMinutes()).padStart(2,"0");
-
-      document.getElementById("datetime").innerText = formatted;
-      document.getElementById("note").value = "Recorded at: " + formatted;
-    }
-
-    function calcTotal() {
+    function calcTotalAndStatus() {
       const a = Number(document.getElementById("activity").value || 0);
       const f = Number(document.getElementById("fur").value || 0);
       const e = Number(document.getElementById("eye").value || 0);
-      document.getElementById("total").value = a + f + e;
-    }
 
-    window.onload = setDateTime;
-  </script>
-</head>
+      const total = a + f + e;
+      document.getElementById("total").value = total;
 
-<body>
-
-<div class="container">
-  <h2>Rat Observation</h2>
-  <div class="datetime" id="datetime"></div>
-
-  <form action="https://docs.google.com/forms/d/1mo-XU34DKLIzGBndxT7uhtgZeWmAXrpm1caFayKW3rY/formResponse"
-        method="POST">
-
-    <label>Cohort</label>
-    <input type="text" name="entry.1403632805">
-
-    <label>Rat</label>
-    <input type="text" name="entry.1776758782">
-
-    <label>Rat ID</label>
-    <input type="text" name="entry.1590806494">
-
-    <label>Activity</label>
-    <select id="activity" name="entry.604859986" onchange="calcTotal()">
-      <option value="">선택</option>
-      <option value="0">0</option>
-      <option value="1">1</option>
-      <option value="2">2</option>
-      <option value="3">3</option>
-      <option value="4">4</option>
-      <option value="5">5</option>
-    </select>
-    <div class="desc">
-      0: 무반응 / 1–2: 둔함 / 3: 보통 / 4–5: 활발
-    </div>
-
-    <label>Fur</label>
-    <select id="fur" name="entry.739649108" onchange="calcTotal()">
-      <option value="">선택</option>
-      <option value="0">0</option>
-      <option value="1">1</option>
-      <option value="2">2</option>
-      <option value="3">3</option>
-      <option value="4">4</option>
-      <option value="5">5</option>
-    </select>
-    <div class="desc">
-      0–1: 거칠고 불량 / 2–3: 약간 흐트러짐 / 4–5: 윤기 있고 정상
-    </div>
-
-    <label>Eye</label>
-    <select id="eye" name="entry.281113936" onchange="calcTotal()">
-      <option value="">선택</option>
-      <option value="0">0</option>
-      <option value="1">1</option>
-      <option value="2">2</option>
-      <option value="3">3</option>
-      <option value="4">4</option>
-      <option value="5">5</option>
-    </select>
-    <div class="desc">
-      0–1: 분비물/혼탁 / 2–3: 경미 / 4–5: 깨끗하고 정상
-    </div>
-
-    <label>Total Score</label>
-    <input type="number" id="total" name="entry.80152893" readonly>
-
-    <label>Note</label>
-    <textarea id="note" name="entry.169205044" rows="3"></textarea>
-
-    <button type="submit">제출</button>
-  </form>
-</div>
-
-</body>
-</html>
+      let status = "";
+      if (total >= 13) status = "Normal";
+      else
