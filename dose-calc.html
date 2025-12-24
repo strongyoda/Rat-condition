@@ -50,6 +50,15 @@
       border: none;
       border-radius: 8px;
     }
+    .result {
+      margin-top: 20px;
+      background: #fff;
+      padding: 15px;
+      border-radius: 6px;
+    }
+    .result ul {
+      padding-left: 18px;
+    }
   </style>
 </head>
 
@@ -77,10 +86,13 @@
 
 <button onclick="confirmAndRun()">계산 후 저장</button>
 
-<!-- Google Form -->
+<!-- ✅ 계산 결과는 계속 보여줌 -->
+<div class="result" id="result" style="display:none;"></div>
+
+<!-- Google Form (입력값 안 보이게 숨김) -->
 <form id="googleForm" method="POST" target="hidden_iframe"
   action="https://docs.google.com/forms/d/e/1FAIpQLSe8Prms_YgWmZv3UQCcSlNFi_dbdQwQiMPFhDJ2RVhBvRkCmw/formResponse">
-  <div id="formFields"></div>
+  <div id="formFields" style="display:none;"></div>
 </form>
 <iframe name="hidden_iframe" style="display:none;"></iframe>
 
@@ -113,8 +125,10 @@ function calculateAndSubmit() {
     return;
   }
 
-  let formHTML = "";
+  let totalMg = 0;
   let hasData = false;
+  let resultHTML = "<h3>📊 오늘 소분 용량</h3><ul>";
+  let formHTML = "";
 
   for (let i = 1; i <= 12; i++) {
     const num = document.getElementById(`num_${i}`).value;
@@ -129,6 +143,12 @@ function calculateAndSubmit() {
     const doseMg = (wt / 1000) * DOSE;
     const volume = doseMg / CONC;
 
+    totalMg += doseMg;
+
+    // 결과 화면
+    resultHTML += `<li>${ratId} → <b>${volume.toFixed(2)} ml</b></li>`;
+
+    // Google Form 데이터 (숨김)
     formHTML += `
       <input name="entry.1181462162" value="${cohort}">
       <input name="entry.1898368339" value="${num}">
@@ -143,6 +163,20 @@ function calculateAndSubmit() {
     alert("최소 한 마리 이상 입력하세요");
     return;
   }
+
+  const adjMg = totalMg * LOSS;
+  const adjMl = adjMg / CONC;
+
+  resultHTML += `
+    </ul>
+    <hr>
+    <b>🧪 오늘 준비량</b><br>
+    약물: ${adjMg.toFixed(2)} mg<br>
+    용액 총량: ${adjMl.toFixed(2)} ml
+  `;
+
+  document.getElementById("result").innerHTML = resultHTML;
+  document.getElementById("result").style.display = "block";
 
   document.getElementById("formFields").innerHTML = formHTML;
   document.getElementById("googleForm").submit();
