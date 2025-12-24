@@ -82,7 +82,8 @@ button {
 
 <script>
 function extractSpecimenKey(specimen) {
-  const match = specimen.match(/\(([^)]+)\)/);
+  // 예: "20251223 Cohort 11 (C1110G1)" -> "C1110"
+  const match = specimen.match(/\((C\d+)\w*\)/i);
   return match ? match[1].trim() : specimen.trim();
 }
 
@@ -222,3 +223,4 @@ function toggleLog(id) {
 
 </body>
 </html>
+
