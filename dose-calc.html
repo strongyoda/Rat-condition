@@ -1,62 +1,40 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="UTF-8">
   <title>Dose Calculator</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      padding: 20px;
-      max-width: 800px;
-      margin: auto;
-    }
-    table {
-      border-collapse: collapse;
-      width: 100%;
-      margin-top: 10px;
-    }
-    th, td {
-      border: 1px solid #ccc;
-      padding: 8px;
-      text-align: center;
-    }
-    th {
-      background: #f2f2f2;
-    }
-    button {
-      margin-top: 15px;
-      padding: 10px 16px;
-      font-size: 14px;
-      cursor: pointer;
-    }
-    .home-btn {
-      margin-top: 30px;
-      background: #eee;
-    }
-  </style>
 </head>
 <body>
 
 <h2>투약 계산기</h2>
 
-<label>코호트 번호</label><br>
-<input id="cohort" type="number"><br><br>
+<p>
+  코호트 번호<br>
+  <input id="cohort">
+</p>
 
-<label>개체 번호</label><br>
-<input id="animalNo" type="number"><br><br>
+<p>
+  개체 번호<br>
+  <input id="animalNo">
+</p>
 
-<label>Rat ID</label><br>
-<input id="ratId" type="number"><br><br>
+<p>
+  Rat ID<br>
+  <input id="ratId">
+</p>
 
-<label>Body weight (g)</label><br>
-<input id="weight" type="number"><br><br>
+<p>
+  Body weight (g)<br>
+  <input id="weight">
+</p>
 
 <button onclick="addAnimal()">개체 추가</button>
 
 <hr>
 
 <h3>개체별 소분 용량</h3>
-<table id="resultTable">
+
+<table border="1" cellpadding="5">
   <thead>
     <tr>
       <th>Rat ID</th>
@@ -64,18 +42,19 @@
       <th>소분 용량 (ml)</th>
     </tr>
   </thead>
-  <tbody></tbody>
+  <tbody id="resultBody"></tbody>
 </table>
 
-<h3 id="totalVolume" style="margin-top:20px;"></h3>
+<p id="totalVolume"></p>
 
 <button onclick="saveData()">계산 후 저장</button>
 
-<br>
-<button class="home-btn" onclick="location.href='index.html'">홈으로</button>
+<!-- ✅ 여기만 추가됨 -->
+<hr>
+<button onclick="location.href='index.html'">홈으로</button>
 
 <script>
-const DOSE = 4;        // mg/kg
+const DOSE = 4;        // mg/kg/day
 const CONC = 2.5;      // mg/ml
 const LOSS = 1.15;     // 15% 증량
 
@@ -105,34 +84,30 @@ function addAnimal() {
     volume
   });
 
-  renderTable();
-  clearWeightOnly();
+  render();
+  document.getElementById("weight").value = "";
+  document.getElementById("ratId").value = "";
 }
 
-function renderTable() {
-  const tbody = document.querySelector("#resultTable tbody");
+function render() {
+  const tbody = document.getElementById("resultBody");
   tbody.innerHTML = "";
 
-  let totalMl = 0;
+  let total = 0;
 
   animals.forEach(a => {
-    totalMl += a.volume;
-    const row = document.createElement("tr");
-    row.innerHTML = `
+    total += a.volume;
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
       <td>${a.ratId}</td>
       <td>${a.weight}</td>
       <td>${a.volume.toFixed(3)}</td>
     `;
-    tbody.appendChild(row);
+    tbody.appendChild(tr);
   });
 
   document.getElementById("totalVolume").innerText =
-    `오늘 준비량: ${totalMl.toFixed(3)} ml`;
-}
-
-function clearWeightOnly() {
-  document.getElementById("weight").value = "";
-  document.getElementById("ratId").value = "";
+    "오늘 준비량: " + total.toFixed(3) + " ml";
 }
 
 function saveData() {
@@ -144,7 +119,7 @@ function saveData() {
   if (!confirm("계산 결과를 저장할까요?")) return;
 
   animals.forEach(a => {
-    const formUrl =
+    const url =
       "https://docs.google.com/forms/d/e/1FAIpQLSe8Prms_YgWmZv3UQCcSlNFi_dbdQwQiMPFhDJ2RVhBvRkCmw/formResponse";
 
     const data = new URLSearchParams();
@@ -155,7 +130,7 @@ function saveData() {
     data.append("entry.2132680140", a.doseMg.toFixed(4));
     data.append("entry.532722932", a.volume.toFixed(4));
 
-    fetch(formUrl, {
+    fetch(url, {
       method: "POST",
       mode: "no-cors",
       body: data
