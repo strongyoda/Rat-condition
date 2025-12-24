@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>Rat Lab System</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: Arial, sans-serif;
+      background: #f5f7fa;
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .container {
+      width: 90%;
+      max-width: 400px;
+      background: white;
+      padding: 30px 20px;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      text-align: center;
+    }
+
+    h1 {
+      margin-bottom: 10px;
+      font-size: 22px;
+    }
+
+    .sub {
+      font-size: 14px;
+      color: #666;
+      margin-bottom: 30px;
+    }
+
+    button {
+      width: 100%;
+      padding: 18px;
+      margin-bottom: 15px;
+      font-size: 16px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+
+    .btn-condition {
+      background: #2c7be5;
+      color: white;
+    }
+
+    .btn-dose {
+      background: #28a745;
+      color: white;
+    }
+
+    .footer {
+      margin-top: 20px;
+      font-size: 12px;
+      color: #999;
+    }
+  </style>
+</head>
+
+<body>
+
+<div class="container">
+  <h1>🐀 Rat Lab System</h1>
+  <div class="sub">
+    상태 평가 및 투약 기록
+  </div>
+
+  <button class="btn-condition"
+    onclick="location.href='condition.html'">
+    🧠 Rat 상태 평가
+  </button>
+
+  <button class="btn-dose"
+    onclick="location.href='dose-calc.html'">
+    💊 투약 계산기
+  </button>
+
+  <div class="footer">
+    모바일 / PC 공용
+  </div>
+</div>
+
+</body>
+</html>

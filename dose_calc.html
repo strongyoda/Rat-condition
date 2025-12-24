@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>Rat 투약 계산기</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 15px;
+      background: #f7f7f7;
+    }
+    h2 {
+      text-align: center;
+      margin-bottom: 5px;
+    }
+    .sub {
+      text-align: center;
+      font-size: 13px;
+      color: #555;
+      margin-bottom: 15px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #fff;
+    }
+    th, td {
+      border: 1px solid #ccc;
+      padding: 6px;
+      text-align: center;
+      font-size: 14px;
+    }
+    th {
+      background: #eee;
+    }
+    input {
+      width: 90%;
+      padding: 4px;
+      font-size: 14px;
+    }
+    button {
+      margin-top: 15px;
+      width: 100%;
+      padding: 14px;
+      font-size: 16px;
+      background: #2c7be5;
+      color: white;
+      border: none;
+      border-radius: 6px;
+    }
+    .result {
+      margin-top: 20px;
+      background: #fff;
+      padding: 15px;
+      border-radius: 6px;
+      display: none;
+    }
+    .result ul {
+      padding-left: 18px;
+    }
+    .saved {
+      margin-top: 15px;
+      padding: 12px;
+      background: #e6f4ea;
+      color: #137333;
+      border-radius: 6px;
+      text-align: center;
+      font-weight: bold;
+      display: none;
+    }
+  </style>
+</head>
+
+<body>
+
+<h2>🐀 Rat 투약 계산기</h2>
+<div class="sub">
+  Telmisartan · 4 mg/kg/day · 2.5 mg/ml<br>
+  준비량 15% 증량 포함
+</div>
+
+<label><b>Cohort 번호</b></label><br>
+<input type="number" id="cohort"><br><br>
+
+<table>
+  <thead>
+    <tr>
+      <th>개체 번호</th>
+      <th>몸무게 (g)</th>
+      <th>Rat ID</th>
+    </tr>
+  </thead>
+  <tbody id="ratTable"></tbody>
+</table>
+
+<button onclick="confirmAndRun()">계산 후 저장</button>
+
+<div class="result" id="result"></div>
+<div class="saved" id="savedMsg">✅ 저장되었습니다</div>
+
+<!-- Google Form -->
+<form id="googleForm" method="POST" target="hidden_iframe"
+  action="https://docs.google.com/forms/d/e/1FAIpQLSe8Prms_YgWmZv3UQCcSlNFi_dbdQwQiMPFhDJ2RVhBvRkCmw/formResponse">
+  <div id="formFields"></div>
+</form>
+<iframe name="hidden_iframe" style="display:none;"></iframe>
+
+<script>
+const DOSE = 4;      // mg/kg
+const CONC = 2.5;   // mg/ml
+const LOSS = 1.15;  // 15% 증량
+
+// 입력 행 12개 생성
+const tbody = document.getElementById("ratTable");
+for (let i = 1; i <= 12; i++) {
+  const tr = document.createElement("tr");
+  tr.innerHTML = `
+    <td><input type="number" id="num_${i}"></td>
+    <td><input type="number" id="wt_${i}"></td>
+    <td id="id_${i}" style="font-size:12px;color:#555;">-</td>
+  `;
+  tbody.appendChild(tr);
+}
+
+function confirmAndRun() {
+  if (!confirm("계산 후 저장할까요?")) return;
+  calculateAndSubmit();
+}
+
+function calculateAndSubmit() {
+  const cohort = document.getElementById("cohort").value;
+  if (!cohort) {
+    alert("Cohort 번호를 입력하세요");
+    return;
+  }
+
+  let totalMg = 0;
+  let resultHTML = "<h3>📊 오늘 소분 용량</h3><ul>";
+  let formHTML = "";
+
+  for (let i = 1; i <= 12; i++) {
+    const num = document.getElementById(`num_${i}`).value;
+    const wt = document.getElementById(`wt_${i}`).value;
+    if (!num || !wt) continue;
+
+    const ratId = `C${cohort}${String(num).padStart(2, "0")}`;
+    document.getElementById(`id_${i}`).innerText = ratId;
+
+    const doseMg = (wt / 1000) * DOSE;
+    const volume = doseMg / CONC;
+
+    totalMg += doseMg;
+
+    // 결과: 소분 ml만 표시
+    resultHTML += `<li>${ratId} → <b>${volume.toFixed(2)} ml</b></li>`;
+
+    // Google Form 데이터
+    formHTML += `
+      <input name="entry.1181462162" value="${cohort}">
+      <input name="entry.1898368339" value="${num}">
+      <input name="entry.914775563" value="${ratId}">
+      <input name="entry.1852662343" value="${wt}">
+      <input name="entry.2132680140" value="${doseMg.toFixed(3)}">
+      <input name="entry.532722932" value="${volume.toFixed(3)}">
+    `;
+  }
+
+  const adjMg = totalMg * LOSS;
+  const adjMl = adjMg / CONC;
+
+  resultHTML += `
+    </ul>
+    <hr>
+    <b>🧪 오늘 준비량</b><br>
+    약물: ${adjMg.toFixed(2)} mg<br>
+    용액 총량: ${adjMl.toFixed(2)} ml
+  `;
+
+  document.getElementById("result").innerHTML = resultHTML;
+  document.getElementById("result").style.display = "block";
+
+  document.getElementById("formFields").innerHTML = formHTML;
+  document.getElementById("googleForm").submit();
+
+  // 저장 완료 메시지
+  const msg = document.getElementById("savedMsg");
+  msg.style.display = "block";
+}
+</script>
+
+</body>
+</html>
