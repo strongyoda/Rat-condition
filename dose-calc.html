@@ -43,32 +43,12 @@
     button {
       margin-top: 15px;
       width: 100%;
-      padding: 14px;
+      padding: 16px;
       font-size: 16px;
       background: #2c7be5;
       color: white;
       border: none;
-      border-radius: 6px;
-    }
-    .result {
-      margin-top: 20px;
-      background: #fff;
-      padding: 15px;
-      border-radius: 6px;
-      display: none;
-    }
-    .result ul {
-      padding-left: 18px;
-    }
-    .saved {
-      margin-top: 15px;
-      padding: 12px;
-      background: #e6f4ea;
-      color: #137333;
-      border-radius: 6px;
-      text-align: center;
-      font-weight: bold;
-      display: none;
+      border-radius: 8px;
     }
   </style>
 </head>
@@ -96,9 +76,6 @@
 </table>
 
 <button onclick="confirmAndRun()">계산 후 저장</button>
-
-<div class="result" id="result"></div>
-<div class="saved" id="savedMsg">✅ 저장되었습니다</div>
 
 <!-- Google Form -->
 <form id="googleForm" method="POST" target="hidden_iframe"
@@ -136,14 +113,15 @@ function calculateAndSubmit() {
     return;
   }
 
-  let totalMg = 0;
-  let resultHTML = "<h3>📊 오늘 소분 용량</h3><ul>";
   let formHTML = "";
+  let hasData = false;
 
   for (let i = 1; i <= 12; i++) {
     const num = document.getElementById(`num_${i}`).value;
     const wt = document.getElementById(`wt_${i}`).value;
     if (!num || !wt) continue;
+
+    hasData = true;
 
     const ratId = `C${cohort}${String(num).padStart(2, "0")}`;
     document.getElementById(`id_${i}`).innerText = ratId;
@@ -151,12 +129,6 @@ function calculateAndSubmit() {
     const doseMg = (wt / 1000) * DOSE;
     const volume = doseMg / CONC;
 
-    totalMg += doseMg;
-
-    // 결과: 소분 ml만 표시
-    resultHTML += `<li>${ratId} → <b>${volume.toFixed(2)} ml</b></li>`;
-
-    // Google Form 데이터
     formHTML += `
       <input name="entry.1181462162" value="${cohort}">
       <input name="entry.1898368339" value="${num}">
@@ -167,26 +139,15 @@ function calculateAndSubmit() {
     `;
   }
 
-  const adjMg = totalMg * LOSS;
-  const adjMl = adjMg / CONC;
-
-  resultHTML += `
-    </ul>
-    <hr>
-    <b>🧪 오늘 준비량</b><br>
-    약물: ${adjMg.toFixed(2)} mg<br>
-    용액 총량: ${adjMl.toFixed(2)} ml
-  `;
-
-  document.getElementById("result").innerHTML = resultHTML;
-  document.getElementById("result").style.display = "block";
+  if (!hasData) {
+    alert("최소 한 마리 이상 입력하세요");
+    return;
+  }
 
   document.getElementById("formFields").innerHTML = formHTML;
   document.getElementById("googleForm").submit();
 
-  // 저장 완료 메시지
-  const msg = document.getElementById("savedMsg");
-  msg.style.display = "block";
+  alert("저장되었습니다");
 }
 </script>
 
