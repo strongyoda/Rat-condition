@@ -5,231 +5,218 @@
 <title>BP Analyzer (PC ver.)</title>
 
 <style>
-body { font-family: Arial, sans-serif; padding: 20px; }
-h1 { margin-bottom: 10px; }
-
-.controls { margin-bottom: 20px; }
-
-.rat-box {
-  border: 2px solid #ccc;
-  padding: 12px;
-  margin-bottom: 20px;
+body {
+  font-family: Arial, sans-serif;
+  background: #f5f7fa;
+  margin: 0;
+  padding: 20px;
 }
 
-.rat-title {
-  font-weight: bold;
-  font-size: 16px;
-  margin-bottom: 8px;
+h1 {
+  margin-bottom: 10px;
+}
+
+input, select {
+  margin: 10px 0;
+}
+
+.specimen-box {
+  background: #fff;
+  border-radius: 10px;
+  padding: 15px;
+  margin-bottom: 20px;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+}
+
+.file-result {
+  border-top: 1px solid #ddd;
+  padding-top: 10px;
+  margin-top: 10px;
 }
 
 table {
-  width: 100%;
   border-collapse: collapse;
-  font-size: 14px;
+  margin-top: 8px;
 }
 
 th, td {
-  border: 1px solid #bbb;
-  padding: 6px;
+  border: 1px solid #ccc;
+  padding: 6px 10px;
+  font-size: 13px;
   text-align: center;
 }
 
-th { background: #eee; }
-
-.log-table {
-  margin-top: 10px;
-  font-size: 13px;
-  background: #fafafa;
+button {
+  margin-top: 8px;
+  padding: 6px 12px;
+  cursor: pointer;
 }
 
-.toggle-btn {
+.log {
+  background: #f1f3f5;
+  padding: 10px;
+  margin-top: 8px;
   font-size: 12px;
-  padding: 4px 8px;
-  cursor: pointer;
+  display: none;
+  white-space: pre-wrap;
 }
 </style>
 </head>
 
 <body>
 
-<h1>BP Analyzer (PC ver.)</h1>
+<h1>🩺 BP Analyzer (PC ver.)</h1>
 
-<div class="controls">
-  <label>
-    <input type="radio" name="mode" value="control" checked> Control
-  </label>
-  <label style="margin-left:20px;">
-    <input type="radio" name="mode" value="induction"> Induction
-  </label>
-  <br><br>
-  <input type="file" id="fileInput" accept=".csv" multiple>
-</div>
+<select id="mode">
+  <option value="control">Control</option>
+  <option value="induction">Induction</option>
+</select>
 
-<div id="output"></div>
+<br>
+<input type="file" id="fileInput" multiple accept=".csv">
+<button onclick="processFiles()">Analyze</button>
+
+<hr>
+
+<div id="result"></div>
 
 <script>
-let allData = [];
+function extractSpecimenKey(specimen) {
+  const match = specimen.match(/\(([^)]+)\)/);
+  return match ? match[1].trim() : specimen.trim();
+}
 
-document.getElementById("fileInput").addEventListener("change", loadFiles);
+function processFiles() {
+  const files = document.getElementById("fileInput").files;
+  const mode = document.getElementById("mode").value;
+  const resultDiv = document.getElementById("result");
+  resultDiv.innerHTML = "";
 
-function loadFiles(e) {
-  allData = [];
-  const files = Array.from(e.target.files);
-  const mode = document.querySelector('input[name="mode"]:checked').value;
-  let loaded = 0;
+  const grouped = {};
 
-  files.forEach(file => {
+  let pending = files.length;
+
+  for (const file of files) {
     const reader = new FileReader();
-    reader.onload = () => {
-      parseCSV(reader.result, file.name);
-      loaded++;
-      if (loaded === files.length) analyze(mode);
+    reader.onload = e => {
+      parseCSV(e.target.result, file.name, mode, grouped);
+      pending--;
+      if (pending === 0) render(grouped);
     };
     reader.readAsText(file);
-  });
+  }
 }
 
-function parseCSV(text, filename) {
-  const rows = text.trim().split("\n").map(r => r.split(","));
-  const header = rows.shift();
-  const idx = n => header.indexOf(n);
+function parseCSV(text, filename, mode, grouped) {
+  const rows = text.split(/\r?\n/).map(r => r.split(","));
+  const header = rows[0];
 
-  rows.forEach(r => {
-    allData.push({
+  const idx = {
+    specimen: header.indexOf("Specimen"),
+    sbp: header.indexOf("Systolic"),
+    dbp: header.indexOf("Diastolic"),
+    mean: header.indexOf("Mean"),
+    volume: header.indexOf("Volume"),
+    accepted: header.indexOf("Accepted"),
+    regular: header.indexOf("Regular Cycle"),
+    time: header.indexOf("Time")
+  };
+
+  const data = rows.slice(1).filter(r => r.length > idx.sbp);
+
+  const bySpecimen = {};
+
+  data.forEach(r => {
+    if (r[idx.accepted] !== "True" || r[idx.regular] !== "True") return;
+
+    const diff = Number(r[idx.sbp]) - Number(r[idx.dbp]);
+    if (mode === "control" && (diff < 20 || diff > 60)) return;
+    if (mode === "induction" && (diff < 25 || diff > 80)) return;
+
+    const key = extractSpecimenKey(r[idx.specimen]);
+    if (!bySpecimen[key]) bySpecimen[key] = [];
+    bySpecimen[key].push(r);
+  });
+
+  for (const key in bySpecimen) {
+    const cycles = bySpecimen[key];
+
+    const sbps = cycles.map(r => Number(r[idx.sbp]));
+    const maxSBP = Math.max(...sbps);
+    const minSBP = Math.min(...sbps);
+
+    const filtered = cycles.filter(r => {
+      const sbp = Number(r[idx.sbp]);
+      return sbp !== maxSBP && sbp !== minSBP;
+    });
+
+    if (!grouped[key]) grouped[key] = [];
+
+    const avg = arr => Math.floor(arr.reduce((a,b)=>a+b,0)/arr.length);
+
+    const sbpAvg = avg(filtered.map(r => Number(r[idx.sbp])));
+    const dbpAvg = avg(filtered.map(r => Number(r[idx.dbp])));
+    const meanAvg = avg(filtered.map(r => Number(r[idx.mean])));
+    const volAvg = avg(filtered.map(r => Number(r[idx.volume])));
+
+    const log = filtered.map((r,i)=>(
+      `Cycle ${i+1}: SBP=${r[idx.sbp]}, DBP=${r[idx.dbp]}, PASS`
+    )).join("\n");
+
+    grouped[key].push({
       file: filename,
-      time: r[idx("Time")],
-      specimen: r[idx("Specimen Name")],
-      regular: r[idx("Regular Cycle")] === "True",
-      accepted: r[idx("Accepted")] === "True",
-      sbp: Number(r[idx("Systolic")]),
-      dbp: Number(r[idx("Diastolic")]),
-      mean: Number(r[idx("Mean")]),
-      volume: Number(r[12]) // M열 Volume
+      time: filtered[0]?.[idx.time] || "",
+      sbp: sbpAvg,
+      dbp: dbpAvg,
+      mean: meanAvg,
+      volume: volAvg,
+      count: filtered.length,
+      log
     });
-  });
+  }
 }
 
-function analyze(mode) {
-  const output = document.getElementById("output");
-  output.innerHTML = "";
+function render(grouped) {
+  const resultDiv = document.getElementById("result");
+  const keys = Object.keys(grouped).sort();
 
-  /* specimen → file 단위 그룹 */
-  const grouped = {};
-  allData.forEach(r => {
-    if (!grouped[r.specimen]) grouped[r.specimen] = {};
-    if (!grouped[r.specimen][r.file]) grouped[r.specimen][r.file] = [];
-    grouped[r.specimen][r.file].push(r);
-  });
-
-  Object.keys(grouped).sort().forEach(specimen => {
+  keys.forEach(key => {
     const box = document.createElement("div");
-    box.className = "rat-box";
-    box.innerHTML = `<div class="rat-title">🐀 ${specimen}</div>`;
+    box.className = "specimen-box";
+    box.innerHTML = `<h3>🐀 ${key}</h3>`;
 
-    const table = document.createElement("table");
-    table.innerHTML = `
-      <tr>
-        <th>File</th>
-        <th>n</th>
-        <th>SBP</th>
-        <th>DBP</th>
-        <th>Mean</th>
-        <th>Volume</th>
-        <th>검증</th>
-      </tr>
-    `;
+    grouped[key].forEach((r, idx) => {
+      const div = document.createElement("div");
+      div.className = "file-result";
 
-    Object.entries(grouped[specimen]).forEach(([file, rows], idx) => {
+      const logId = `${key}-${idx}`;
 
-      /* 1️⃣ Regular + Accepted */
-      const valid = rows.filter(r => r.regular && r.accepted);
-
-      if (valid.length === 0) return;
-
-      /* 2️⃣ 이 set 안에서 SBP max/min */
-      const sbps = valid.map(r => r.sbp);
-      const maxSBP = Math.max(...sbps);
-      const minSBP = Math.min(...sbps);
-
-      /* 3️⃣ 사이클별 판정 */
-      const judged = rows.map(r => {
-        let reason = "✅ Accepted";
-
-        if (!r.regular || !r.accepted) {
-          reason = "❌ Regular/Accepted";
-        } else if (r.sbp === maxSBP) {
-          reason = "❌ SBP = MAX (set)";
-        } else if (r.sbp === minSBP) {
-          reason = "❌ SBP = MIN (set)";
-        } else {
-          const diff = r.sbp - r.dbp;
-          if (mode === "control" && (diff < 20 || diff > 60))
-            reason = "❌ Pulse diff";
-          if (mode === "induction" && (diff < 25 || diff > 80))
-            reason = "❌ Pulse diff";
-        }
-
-        return { ...r, reason };
-      });
-
-      const passed = judged.filter(r => r.reason === "✅ Accepted");
-      if (passed.length === 0) return;
-
-      /* 4️⃣ 평균 → 최종 버림 */
-      const avgFloor = key =>
-        Math.floor(passed.reduce((s, r) => s + r[key], 0) / passed.length);
-
-      const logId = `log_${specimen}_${idx}`;
-
-      table.innerHTML += `
-        <tr>
-          <td>${file}</td>
-          <td>${passed.length}</td>
-          <td>${avgFloor("sbp")}</td>
-          <td>${avgFloor("dbp")}</td>
-          <td>${avgFloor("mean")}</td>
-          <td>${avgFloor("volume")}</td>
-          <td>
-            <button class="toggle-btn" onclick="toggleLog('${logId}')">
-              사이클 로그
-            </button>
-          </td>
-        </tr>
-        <tr id="${logId}" style="display:none;">
-          <td colspan="7">
-            <table class="log-table">
-              <tr>
-                <th>Time</th>
-                <th>SBP</th>
-                <th>DBP</th>
-                <th>Mean</th>
-                <th>Volume</th>
-                <th>판정</th>
-              </tr>
-              ${judged.map(r => `
-                <tr>
-                  <td>${r.time}</td>
-                  <td>${r.sbp}</td>
-                  <td>${r.dbp}</td>
-                  <td>${r.mean}</td>
-                  <td>${r.volume}</td>
-                  <td>${r.reason}</td>
-                </tr>
-              `).join("")}
-            </table>
-          </td>
-        </tr>
+      div.innerHTML = `
+        <b>${r.file}</b><br>
+        Cycles used: ${r.count}
+        <table>
+          <tr><th>Time</th><th>SBP</th><th>DBP</th><th>Mean</th><th>Volume</th></tr>
+          <tr>
+            <td>${r.time}</td>
+            <td>${r.sbp}</td>
+            <td>${r.dbp}</td>
+            <td>${r.mean}</td>
+            <td>${r.volume}</td>
+          </tr>
+        </table>
+        <button onclick="toggleLog('${logId}')">사이클 로그</button>
+        <div id="${logId}" class="log">${r.log}</div>
       `;
+      box.appendChild(div);
     });
 
-    box.appendChild(table);
-    output.appendChild(box);
+    resultDiv.appendChild(box);
   });
 }
 
 function toggleLog(id) {
   const el = document.getElementById(id);
-  el.style.display = el.style.display === "none" ? "table-row" : "none";
+  el.style.display = el.style.display === "none" ? "block" : "none";
 }
 </script>
 
