@@ -81,8 +81,12 @@ button {
 <div id="result"></div>
 
 <script>
+/**
+ * Specimen key 추출
+ * 예: "20251223 Cohort 11 (C1110G1)" -> "C1110"
+ * 날짜 상관없이 코호트+개체 숫자 기준으로만 묶음
+ */
 function extractSpecimenKey(specimen) {
-  // 예: "20251223 Cohort 11 (C1110G1)" -> "C1110"
   const match = specimen.match(/\((C\d+)\w*\)/i);
   return match ? match[1].trim() : specimen.trim();
 }
@@ -93,7 +97,7 @@ function processFiles() {
   const resultDiv = document.getElementById("result");
   resultDiv.innerHTML = "";
 
-  const grouped = {};
+  const grouped = {}; // specimen key 기준으로 통합 저장
 
   let pending = files.length;
 
@@ -142,6 +146,7 @@ function parseCSV(text, filename, mode, grouped) {
   for (const key in bySpecimen) {
     const cycles = bySpecimen[key];
 
+    // SBP 최대/최소 제거
     const sbps = cycles.map(r => Number(r[idx.sbp]));
     const maxSBP = Math.max(...sbps);
     const minSBP = Math.min(...sbps);
@@ -160,9 +165,7 @@ function parseCSV(text, filename, mode, grouped) {
     const meanAvg = avg(filtered.map(r => Number(r[idx.mean])));
     const volAvg = avg(filtered.map(r => Number(r[idx.volume])));
 
-    const log = filtered.map((r,i)=>(
-      `Cycle ${i+1}: SBP=${r[idx.sbp]}, DBP=${r[idx.dbp]}, PASS`
-    )).join("\n");
+    const log = filtered.map((r,i)=>(`Cycle ${i+1}: SBP=${r[idx.sbp]}, DBP=${r[idx.dbp]}, PASS`)).join("\n");
 
     grouped[key].push({
       file: filename,
@@ -223,4 +226,3 @@ function toggleLog(id) {
 
 </body>
 </html>
-
