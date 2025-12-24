@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>BP Analyzer (PC ver.)</title>
+
+<style>
+body { font-family: Arial, sans-serif; padding: 20px; }
+h1 { margin-bottom: 10px; }
+
+.controls { margin-bottom: 20px; }
+
+.rat-box {
+  border: 2px solid #ccc;
+  padding: 12px;
+  margin-bottom: 20px;
+}
+
+.rat-title {
+  font-weight: bold;
+  font-size: 16px;
+  margin-bottom: 8px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+th, td {
+  border: 1px solid #bbb;
+  padding: 6px;
+  text-align: center;
+}
+
+th { background: #eee; }
+
+.log-table {
+  margin-top: 10px;
+  font-size: 13px;
+  background: #fafafa;
+}
+
+.toggle-btn {
+  font-size: 12px;
+  padding: 4px 8px;
+  cursor: pointer;
+}
+</style>
+</head>
+
+<body>
+
+<h1>BP Analyzer (PC ver.)</h1>
+
+<div class="controls">
+  <label>
+    <input type="radio" name="mode" value="control" checked> Control
+  </label>
+  <label style="margin-left:20px;">
+    <input type="radio" name="mode" value="induction"> Induction
+  </label>
+  <br><br>
+  <input type="file" id="fileInput" accept=".csv" multiple>
+</div>
+
+<div id="output"></div>
+
+<script>
+let allData = [];
+
+document.getElementById("fileInput").addEventListener("change", loadFiles);
+
+function loadFiles(e) {
+  allData = [];
+  const files = Array.from(e.target.files);
+  const mode = document.querySelector('input[name="mode"]:checked').value;
+  let loaded = 0;
+
+  files.forEach(file => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      parseCSV(reader.result, file.name);
+      loaded++;
+      if (loaded === files.length) analyze(mode);
+    };
+    reader.readAsText(file);
+  });
+}
+
+function parseCSV(text, filename) {
+  const rows = text.trim().split("\n").map(r => r.split(","));
+  const header = rows.shift();
+  const idx = n => header.indexOf(n);
+
+  rows.forEach(r => {
+    allData.push({
+      file: filename,
+      time: r[idx("Time")],
+      specimen: r[idx("Specimen Name")],
+      regular: r[idx("Regular Cycle")] === "True",
+      accepted: r[idx("Accepted")] === "True",
+      sbp: Number(r[idx("Systolic")]),
+      dbp: Number(r[idx("Diastolic")]),
+      mean: Number(r[idx("Mean")]),
+      volume: Number(r[12]) // M열 Volume
+    });
+  });
+}
+
+function analyze(mode) {
+  const output = document.getElementById("output");
+  output.innerHTML = "";
+
+  /* specimen → file 단위 그룹 */
+  const grouped = {};
+  allData.forEach(r => {
+    if (!grouped[r.specimen]) grouped[r.specimen] = {};
+    if (!grouped[r.specimen][r.file]) grouped[r.specimen][r.file] = [];
+    grouped[r.specimen][r.file].push(r);
+  });
+
+  Object.keys(grouped).sort().forEach(specimen => {
+    const box = document.createElement("div");
+    box.className = "rat-box";
+    box.innerHTML = `<div class="rat-title">🐀 ${specimen}</div>`;
+
+    const table = document.createElement("table");
+    table.innerHTML = `
+      <tr>
+        <th>File</th>
+        <th>n</th>
+        <th>SBP</th>
+        <th>DBP</th>
+        <th>Mean</th>
+        <th>Volume</th>
+        <th>검증</th>
+      </tr>
+    `;
+
+    Object.entries(grouped[specimen]).forEach(([file, rows], idx) => {
+
+      /* 1️⃣ Regular + Accepted */
+      const valid = rows.filter(r => r.regular && r.accepted);
+
+      if (valid.length === 0) return;
+
+      /* 2️⃣ 이 set 안에서 SBP max/min */
+      const sbps = valid.map(r => r.sbp);
+      const maxSBP = Math.max(...sbps);
+      const minSBP = Math.min(...sbps);
+
+      /* 3️⃣ 사이클별 판정 */
+      const judged = rows.map(r => {
+        let reason = "✅ Accepted";
+
+        if (!r.regular || !r.accepted) {
+          reason = "❌ Regular/Accepted";
+        } else if (r.sbp === maxSBP) {
+          reason = "❌ SBP = MAX (set)";
+        } else if (r.sbp === minSBP) {
+          reason = "❌ SBP = MIN (set)";
+        } else {
+          const diff = r.sbp - r.dbp;
+          if (mode === "control" && (diff < 20 || diff > 60))
+            reason = "❌ Pulse diff";
+          if (mode === "induction" && (diff < 25 || diff > 80))
+            reason = "❌ Pulse diff";
+        }
+
+        return { ...r, reason };
+      });
+
+      const passed = judged.filter(r => r.reason === "✅ Accepted");
+      if (passed.length === 0) return;
+
+      /* 4️⃣ 평균 → 최종 버림 */
+      const avgFloor = key =>
+        Math.floor(passed.reduce((s, r) => s + r[key], 0) / passed.length);
+
+      const logId = `log_${specimen}_${idx}`;
+
+      table.innerHTML += `
+        <tr>
+          <td>${file}</td>
+          <td>${passed.length}</td>
+          <td>${avgFloor("sbp")}</td>
+          <td>${avgFloor("dbp")}</td>
+          <td>${avgFloor("mean")}</td>
+          <td>${avgFloor("volume")}</td>
+          <td>
+            <button class="toggle-btn" onclick="toggleLog('${logId}')">
+              사이클 로그
+            </button>
+          </td>
+        </tr>
+        <tr id="${logId}" style="display:none;">
+          <td colspan="7">
+            <table class="log-table">
+              <tr>
+                <th>Time</th>
+                <th>SBP</th>
+                <th>DBP</th>
+                <th>Mean</th>
+                <th>Volume</th>
+                <th>판정</th>
+              </tr>
+              ${judged.map(r => `
+                <tr>
+                  <td>${r.time}</td>
+                  <td>${r.sbp}</td>
+                  <td>${r.dbp}</td>
+                  <td>${r.mean}</td>
+                  <td>${r.volume}</td>
+                  <td>${r.reason}</td>
+                </tr>
+              `).join("")}
+            </table>
+          </td>
+        </tr>
+      `;
+    });
+
+    box.appendChild(table);
+    output.appendChild(box);
+  });
+}
+
+function toggleLog(id) {
+  const el = document.getElementById(id);
+  el.style.display = el.style.display === "none" ? "table-row" : "none";
+}
+</script>
+
+</body>
+</html>
