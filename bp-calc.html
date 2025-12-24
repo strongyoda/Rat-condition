@@ -5,61 +5,23 @@
 <title>BP Analyzer (PC ver.)</title>
 
 <style>
-body {
-  font-family: Arial, sans-serif;
-  background: #f5f7fa;
-  margin: 0;
-  padding: 20px;
-}
+  body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f5f7fa; margin: 0; padding: 20px; color: #333; }
+  h1 { color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px; }
+  .controls { background: #fff; padding: 15px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); margin-bottom: 20px; }
+  input, select, button { padding: 8px 12px; border-radius: 4px; border: 1px solid #ccc; font-size: 14px; }
+  button { background: #3498db; color: white; border: none; cursor: pointer; transition: 0.2s; }
+  button:hover { background: #2980b9; }
 
-h1 {
-  margin-bottom: 10px;
-}
+  .specimen-box { background: #fff; border-radius: 10px; padding: 15px; margin-bottom: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.08); border-left: 5px solid #3498db; }
+  .file-result { border-top: 1px solid #eee; padding: 12px 0; margin-top: 10px; }
+  .file-name { font-weight: bold; color: #e67e22; margin-bottom: 5px; display: block; }
+  
+  table { border-collapse: collapse; width: 100%; margin-top: 8px; background: #fafafa; }
+  th, td { border: 1px solid #ddd; padding: 8px; font-size: 13px; text-align: center; }
+  th { background: #f1f3f5; color: #555; }
 
-input, select {
-  margin: 10px 0;
-}
-
-.specimen-box {
-  background: #fff;
-  border-radius: 10px;
-  padding: 15px;
-  margin-bottom: 20px;
-  box-shadow: 0 4px 10px rgba(0,0,0,0.08);
-}
-
-.file-result {
-  border-top: 1px solid #ddd;
-  padding-top: 10px;
-  margin-top: 10px;
-}
-
-table {
-  border-collapse: collapse;
-  margin-top: 8px;
-}
-
-th, td {
-  border: 1px solid #ccc;
-  padding: 6px 10px;
-  font-size: 13px;
-  text-align: center;
-}
-
-button {
-  margin-top: 8px;
-  padding: 6px 12px;
-  cursor: pointer;
-}
-
-.log {
-  background: #f1f3f5;
-  padding: 10px;
-  margin-top: 8px;
-  font-size: 12px;
-  display: none;
-  white-space: pre-wrap;
-}
+  .log { background: #2d3436; color: #dfe6e9; padding: 10px; margin-top: 8px; font-size: 11px; display: none; white-space: pre-wrap; border-radius: 4px; font-family: monospace; }
+  .btn-log { background: #95a5a6; font-size: 11px; margin-top: 5px; }
 </style>
 </head>
 
@@ -67,55 +29,64 @@ button {
 
 <h1>🩺 BP Analyzer (PC ver.)</h1>
 
-<select id="mode">
-  <option value="control">Control</option>
-  <option value="induction">Induction</option>
-</select>
-
-<br>
-<input type="file" id="fileInput" multiple accept=".csv">
-<button onclick="processFiles()">Analyze</button>
-
-<hr>
+<div class="controls">
+  <strong>Mode: </strong>
+  <select id="mode">
+    <option value="control">Control (Diff 20-60)</option>
+    <option value="induction">Induction (Diff 25-80)</option>
+  </select>
+  <input type="file" id="fileInput" multiple accept=".csv">
+  <button onclick="processFiles()">Analyze & Group by Rat ID</button>
+</div>
 
 <div id="result"></div>
 
 <script>
 /**
- * Specimen key 추출
- * 예: "20251223 Cohort 11 (C1110G1)" -> "C1110"
- * 날짜 상관없이 코호트+개체 숫자 기준으로만 묶음
+ * 핵심 수정 부분: Specimen 이름에서 Rat ID만 정밀하게 추출
  */
 function extractSpecimenKey(specimen) {
-  const match = specimen.match(/\((C\d+)\w*\)/i);
-  return match ? match[1].trim() : specimen.trim();
+  if (!specimen) return "Unknown";
+  
+  // 1. 괄호 () 안의 내용을 찾음
+  const match = specimen.match(/\(([^)]+)\)/);
+  if (match && match[1]) {
+    return match[1].trim(); // 괄호 안의 ID만 반환 (공백 제거)
+  }
+  
+  // 2. 괄호가 없는 경우, 마지막 공백이나 하이픈 뒤의 단어를 ID로 추정
+  const parts = specimen.split(/[\s\-_]+/);
+  return parts[parts.length - 1].trim();
 }
 
 function processFiles() {
-  const files = document.getElementById("fileInput").files;
+  const fileInput = document.getElementById("fileInput");
+  const files = fileInput.files;
+  if (files.length === 0) return alert("파일을 선택해주세요.");
+
   const mode = document.getElementById("mode").value;
   const resultDiv = document.getElementById("result");
-  resultDiv.innerHTML = "";
+  resultDiv.innerHTML = "<p>Processing...</p>";
 
-  const grouped = {}; // specimen key 기준으로 통합 저장
-
-  let pending = files.length;
+  const globalGrouped = {}; // 전체 파일을 통합하여 저장할 객체
+  let filesProcessed = 0;
 
   for (const file of files) {
     const reader = new FileReader();
     reader.onload = e => {
-      parseCSV(e.target.result, file.name, mode, grouped);
-      pending--;
-      if (pending === 0) render(grouped);
+      parseCSV(e.target.result, file.name, mode, globalGrouped);
+      filesProcessed++;
+      if (filesProcessed === files.length) render(globalGrouped);
     };
     reader.readAsText(file);
   }
 }
 
-function parseCSV(text, filename, mode, grouped) {
-  const rows = text.split(/\r?\n/).map(r => r.split(","));
-  const header = rows[0];
+function parseCSV(text, filename, mode, globalGrouped) {
+  const rows = text.split(/\r?\n/).filter(line => line.trim() !== "").map(r => r.split(","));
+  if (rows.length < 2) return;
 
+  const header = rows[0];
   const idx = {
     specimen: header.indexOf("Specimen"),
     sbp: header.indexOf("Systolic"),
@@ -129,75 +100,86 @@ function parseCSV(text, filename, mode, grouped) {
 
   const data = rows.slice(1).filter(r => r.length > idx.sbp);
 
-  const bySpecimen = {};
+  // 이 파일 내에서 개체별로 임시 분류
+  const tempBySpecimen = {};
 
   data.forEach(r => {
     if (r[idx.accepted] !== "True" || r[idx.regular] !== "True") return;
 
-    const diff = Number(r[idx.sbp]) - Number(r[idx.dbp]);
+    const sbp = Number(r[idx.sbp]);
+    const dbp = Number(r[idx.dbp]);
+    const diff = sbp - dbp;
+
+    // 모드별 필터링
     if (mode === "control" && (diff < 20 || diff > 60)) return;
     if (mode === "induction" && (diff < 25 || diff > 80)) return;
 
-    const key = extractSpecimenKey(r[idx.specimen]);
-    if (!bySpecimen[key]) bySpecimen[key] = [];
-    bySpecimen[key].push(r);
+    const rawName = r[idx.specimen];
+    const key = extractSpecimenKey(rawName); // 여기서 날짜 떼고 Rat ID만 가져옴
+
+    if (!tempBySpecimen[key]) tempBySpecimen[key] = [];
+    tempBySpecimen[key].push(r);
   });
 
-  for (const key in bySpecimen) {
-    const cycles = bySpecimen[key];
+  // 임시 분류된 데이터를 globalGrouped에 통합
+  for (const key in tempBySpecimen) {
+    const cycles = tempBySpecimen[key];
+    if (cycles.length < 3) continue; // 데이터가 너무 적으면 제외 (선택 사항)
 
-    // SBP 최대/최소 제거
     const sbps = cycles.map(r => Number(r[idx.sbp]));
     const maxSBP = Math.max(...sbps);
     const minSBP = Math.min(...sbps);
 
+    // Max/Min 제외한 필터링
     const filtered = cycles.filter(r => {
-      const sbp = Number(r[idx.sbp]);
-      return sbp !== maxSBP && sbp !== minSBP;
+      const v = Number(r[idx.sbp]);
+      return v !== maxSBP && v !== minSBP;
     });
 
-    if (!grouped[key]) grouped[key] = [];
+    if (filtered.length === 0) continue;
 
     const avg = arr => Math.floor(arr.reduce((a,b)=>a+b,0)/arr.length);
+    
+    if (!globalGrouped[key]) globalGrouped[key] = [];
 
-    const sbpAvg = avg(filtered.map(r => Number(r[idx.sbp])));
-    const dbpAvg = avg(filtered.map(r => Number(r[idx.dbp])));
-    const meanAvg = avg(filtered.map(r => Number(r[idx.mean])));
-    const volAvg = avg(filtered.map(r => Number(r[idx.volume])));
-
-    const log = filtered.map((r,i)=>(`Cycle ${i+1}: SBP=${r[idx.sbp]}, DBP=${r[idx.dbp]}, PASS`)).join("\n");
-
-    grouped[key].push({
+    globalGrouped[key].push({
       file: filename,
-      time: filtered[0]?.[idx.time] || "",
-      sbp: sbpAvg,
-      dbp: dbpAvg,
-      mean: meanAvg,
-      volume: volAvg,
+      time: filtered[0][idx.time] || "N/A",
+      sbp: avg(filtered.map(r => Number(r[idx.sbp]))),
+      dbp: avg(filtered.map(r => Number(r[idx.dbp]))),
+      mean: avg(filtered.map(r => Number(r[idx.mean]))),
+      volume: avg(filtered.map(r => Number(r[idx.volume]))),
       count: filtered.length,
-      log
+      log: filtered.map((r, i) => `Cycle ${i+1}: SBP=${r[idx.sbp]}, DBP=${r[idx.dbp]}`).join("\n")
     });
   }
 }
 
 function render(grouped) {
   const resultDiv = document.getElementById("result");
+  resultDiv.innerHTML = "";
+  
   const keys = Object.keys(grouped).sort();
+
+  if (keys.length === 0) {
+    resultDiv.innerHTML = "<p>분석된 데이터가 없습니다. 필터 조건을 확인하세요.</p>";
+    return;
+  }
 
   keys.forEach(key => {
     const box = document.createElement("div");
     box.className = "specimen-box";
-    box.innerHTML = `<h3>🐀 ${key}</h3>`;
+    box.innerHTML = `<h3>🐀 Rat ID: ${key}</h3>`;
 
+    // 해당 ID의 모든 파일 결과 출력
     grouped[key].forEach((r, idx) => {
       const div = document.createElement("div");
       div.className = "file-result";
-
-      const logId = `${key}-${idx}`;
+      const logId = `log-${key.replace(/\s+/g, '')}-${idx}`;
 
       div.innerHTML = `
-        <b>${r.file}</b><br>
-        Cycles used: ${r.count}
+        <span class="file-name">📂 ${r.file}</span>
+        <small>Cycles used (excl. Max/Min): ${r.count}</small>
         <table>
           <tr><th>Time</th><th>SBP</th><th>DBP</th><th>Mean</th><th>Volume</th></tr>
           <tr>
@@ -208,7 +190,7 @@ function render(grouped) {
             <td>${r.volume}</td>
           </tr>
         </table>
-        <button onclick="toggleLog('${logId}')">사이클 로그</button>
+        <button class="btn-log" onclick="toggleLog('${logId}')">View Cycle Details</button>
         <div id="${logId}" class="log">${r.log}</div>
       `;
       box.appendChild(div);
@@ -220,7 +202,7 @@ function render(grouped) {
 
 function toggleLog(id) {
   const el = document.getElementById(id);
-  el.style.display = el.style.display === "none" ? "block" : "none";
+  el.style.display = (el.style.display === "block") ? "none" : "block";
 }
 </script>
 
